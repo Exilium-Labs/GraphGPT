@@ -4,7 +4,7 @@ If an update is a relationship, provide [ENTITY 1, RELATIONSHIP, ENTITY 2]. The 
 
 If an update is related to a color, provide [ENTITY, COLOR]. Color is in hex format.
 
-If an update is related to deleting an entity, provide ["DELETE", ENTITY].
+If an update is related to deleting an entity, provide [DELETE, ENTITY].
 
 Example:
 prompt: Alice is Bob's roommate. Make her node green.
