@@ -23,6 +23,25 @@ const options = {
 };
 
 function App() {
+  const [useAzureOpenAIApi, setChecked] = React.useState(false);
+  const [apiURI, setApiURI] = React.useState('https://api.openai.com/v1/completions');
+
+  const handleChangeApiURI = () => {
+    setChecked(!useAzureOpenAIApi);
+  };
+
+  const handleApiURI = (event) => {
+    setApiURI(event.target.value);
+  };
+
+  const Checkbox = ({ label, value, onChange }) => {
+    return (
+      <label>
+        <input type="checkbox" checked={value} onChange={onChange} />
+        {label}
+      </label>
+    );
+  };
 
   const [graphState, setGraphState] = useState(
     {
@@ -121,20 +140,50 @@ function App() {
       .then(response => response.text())
       .then(text => text.replace("$prompt", prompt))
       .then(prompt => {
-        console.log(prompt)
+        console.log("prompt:", prompt);
 
-        const params = { ...DEFAULT_PARAMS, prompt: prompt, stop: "\n" };
+        let params = {};
+        if (useAzureOpenAIApi == true) {
+          // Azure OpenAI Studio API
+          params = {
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an AI assistant that helps people find information.',
+              },
+              {
+                role: 'user',
+                content: prompt,
+              },
+            ],
+            stop: "\n",
+            max_tokens: 100,
+          };
+        } else {
+          // OpenAI ChatGPT API
+          params = { ...DEFAULT_PARAMS, prompt: prompt, stop: "\n" };
+        }
+
+        let headers = {
+          'Content-Type': 'application/json',
+        };
+        headers['api-key'] = String(apiKey);
+        if (useAzureOpenAIApi == true) {
+          // Azure OpenAI Studio API
+          headers['api-key'] = String(apiKey);
+        } else {
+          // OpenAI ChatGPT API
+          headers['Authorization'] = 'Bearer ' + String(apiKey);
+        }
 
         const requestOptions = {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + String(apiKey)
-          },
+          headers: headers,
           body: JSON.stringify(params)
         };
-        fetch('https://api.openai.com/v1/completions', requestOptions)
+        fetch(apiURI, requestOptions)
           .then(response => {
+            console.log("response: ", response);
             if (!response.ok) {
               switch (response.status) {
                 case 401: // 401: Unauthorized: API key is wrong
@@ -142,15 +191,25 @@ function App() {
                 case 429: // 429: Too Many Requests: Need to pay
                   throw new Error('You exceeded your current quota, please check your plan and billing details.');
                 default:
-                  throw new Error('Something went wrong with the request, please check the Network log');
+                  throw new Error('Something went wrong with the request, please check the Network log - response:', response, ", response.text", response.text());
               }
             }
             return response.json();
           })
           .then((response) => {
+            console.log("response 1: ", response);
             const { choices } = response;
-            const text = choices[0].text;
-            console.log(text);
+            console.log("choices 1: ", choices);
+
+            let text = "";
+            if (useAzureOpenAIApi == true) {
+              // Azure OpenAI Studio API
+              text = choices[0].message.content;
+            } else {
+              // OpenAI ChatGPT API
+              text = choices[0].text;
+            }
+            console.log("text 1: ", text);
 
             const updates = JSON.parse(text);
             console.log(updates);
@@ -175,17 +234,46 @@ function App() {
       .then(prompt => {
         console.log(prompt)
 
-        const params = { ...DEFAULT_PARAMS, prompt: prompt };
+        let params = {};
+        if (useAzureOpenAIApi == true) {
+          // Azure OpenAI Studio API
+          params = {
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an AI assistant that helps people find information.',
+              },
+              {
+                role: 'user',
+                content: prompt,
+              },
+            ],
+            // stop: "\n",
+            max_tokens: 100,
+          };
+        } else {
+          // OpenAI ChatGPT API
+          params = { ...DEFAULT_PARAMS, prompt: prompt };
+        }
+
+        let headers = {
+          'Content-Type': 'application/json',
+        };
+        headers['api-key'] = String(apiKey);
+        if (useAzureOpenAIApi == true) {
+          // Azure OpenAI Studio API
+          headers['api-key'] = String(apiKey);
+        } else {
+          // OpenAI ChatGPT API
+          headers['Authorization'] = 'Bearer ' + String(apiKey);
+        }
 
         const requestOptions = {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + String(apiKey)
-          },
+          headers: headers,
           body: JSON.stringify(params)
         };
-        fetch('https://api.openai.com/v1/completions', requestOptions)
+        fetch(apiURI, requestOptions)
           .then(response => {
             if (!response.ok) {
               switch (response.status) {
@@ -200,9 +288,18 @@ function App() {
             return response.json();
           })
           .then((response) => {
+            console.log("response 2: ", response);
             const { choices } = response;
-            const text = choices[0].text;
-            console.log(text);
+            console.log("choices 2: ", choices);
+
+            let text = "";
+            if (useAzureOpenAIApi == true) {
+              // Azure OpenAI Studio API
+              text = choices[0].message.content;
+            } else {
+              text = choices[0].text;
+            }
+            console.log("text 2: ", text);
 
             const new_graph = JSON.parse(text);
 
@@ -234,7 +331,18 @@ function App() {
   const createGraph = () => {
     document.body.style.cursor = 'wait';
 
-    document.getElementsByClassName("generateButton")[0].disabled = true;
+    //document.getElementsByClassName("generateButton")[0].disabled = true;
+    const prompt = document.getElementsByClassName("searchBar")[0].value;
+    const apiKey = document.getElementsByClassName("apiKeyTextField")[0].value;
+
+    queryPrompt(prompt, apiKey);
+  }
+
+
+  const switchOpenAIApi = () => {
+    document.body.style.cursor = 'wait';
+
+    //document.getElementsByClassName("generateButton")[0].disabled = true;
     const prompt = document.getElementsByClassName("searchBar")[0].value;
     const apiKey = document.getElementsByClassName("apiKeyTextField")[0].value;
 
@@ -248,8 +356,19 @@ function App() {
       <p className='opensourceText'><a href="https://github.com/varunshenoy/graphgpt">GraphGPT is open-source</a>&nbsp;🎉</p>
       <center>
         <div className='inputContainer'>
-          <input className="searchBar" placeholder="Describe your graph..."></input>
+          <input className="searchBar" placeholder="Describe and update your graph..."></input>
+          <input
+            className="apiURI"
+            value={apiURI}
+            onChange={handleApiURI}
+          />
           <input className="apiKeyTextField" type="password" placeholder="Enter your OpenAI API key..."></input>
+          <Checkbox
+            label="Use Azure OpenAI Studio API"
+            value={useAzureOpenAIApi}
+            onChange={handleChangeApiURI}
+          />
+          <hr />
           <button className="generateButton" onClick={createGraph}>Generate</button>
           <button className="clearButton" onClick={clearState}>Clear</button>
         </div>
